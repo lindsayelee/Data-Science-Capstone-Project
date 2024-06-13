@@ -1,0 +1,567 @@
+---
+title: "FinalCapstoneProject"
+author: "Lindsay Lee"
+date: "2024-06-10"
+output:
+  pdf_document: default
+  word_document: default
+  html_document:
+    df_print: paged
+---
+####################################################################
+## **Final Capstone Project: PISA 2022 Predictors of Well-Being** ##
+####################################################################
+
+## **Introduction**
+
+After the COVID-19 pandemic, the factors that influence children and adolescent's well-being has been at the collective forefront of society (UNESCO, 2024). For years, there has been a call to action on how social media has influenced children and teenager's perception of themselves and overall well-being (e.g., cyberbullying, privacy violations, body dissatisfaction, social comparison; Granic et al., 2020; Scully et al., 2023; UNESCO, 2023; UNESCO, 2024; Wong, 2024). Adolescence is a critical period of life that centers around identity development (Erikson, 1968) and other psychosocial self-beliefs continue to develop over the course of time within schools. There are several scholars that argue that psychosocial beliefs likely has influences to well-being that can impact learning environments (Nemiro et al., 2022; Tsang et al., 2011). Beyond the influence of social media and technology usage, there is little research on how psychosocial strength factors predict student overall well-being in adolescents (Nemiro et al., 2022), particularly how I are developing their talent (Subotnik, 2015).  
+
+
+## *Purpose*
+
+
+The Programme for International Student Assessment (PISA) is developed by The Organization for Economic Cooperation and Development (OECD) and assesses students, principals, and parents on a range of topics (e.g., well-being, creative thinking, financial literacy, ICT [Information, Computers, & Technology]) involved with the education of students internationally (OECD, 2024). For the purpose of this report, I will analyze student demographics (i.e., grade level gender, parental education, and country of origin) and psychosocial variables (i.e., responses on self-report items of belongingness, curiosity, perseverance, stress resistance, problems with self-directed learning, and family support) to predict scores on well-being. 
+
+The following questions guided my inquiry:
+1. To what extent does student demographics (i.e., grade level, gender, parental education, country of origin) self-beliefs of belongingness, perseverance, curiosity, stress resistance, family support, and problems with self-directed learning predict well-being in teenagers?
+2. Of the specific psychosocial and demographic features included, what are the top predictors that highly predict well-being in adolescents? 
+
+## **Methods/Analysis**
+
+RStudio was used to conduct analyses (R Core Team, 2023). The following analyses used the PISA 2022 dataset that is freely available online (OECD, 2024). Analyses used both a hierarchical linear regression approach and a random forest algorithm to assess the relationship and predictiveness of the included features. Demographic factor type features include grade level, gender, parental education, country of origin. Psychosocial numeric type features include belongingness, curiosity, perseverance, stress resistance, problems with self-directed learning, and well-being. 
+
+Composite variables were already computed and converted to Z-Score metric. Prior to analyses, data cleaning used dplyr (Wickham et al., 2014) and tidyr (Wickem et al., 2024) to rename variables, create an Age variable based on substracting student's birth year from 2022 (testing year), remove erronuous levels (e.g., 96 from International Grade levels) and unneeded variables from my pull of the dataset (i.e., BirthYear, STRATUM). I also converted data from integers and logical vectors to factors (demographics) and numeric (features) variable types to be able to run analyses for my research questions.The countries included in this report are Brazil, Spain, France, Hong Kong (China), Hungry, Ireland, Macao (China), Netherlands, New Zealand, and Slovenia. Parental Education was based on the ISCED indicators used by UNESCO/PISA documentation (see OECD, 2023). All other countries were listwise deleted with na.omit() because they did not include all variables of interest.
+
+*Note - I initially used the haven package () to import spss (.sav) file, but looked for alternatives to create a relative path for this report. I tried to webscrape the dataset off of the PISA website, however webscraping encountered a HTTP 403 error and could not access website even when specifying user agent for my browser. I looked to host the dataset on my github, but the file was too large. I asked ChatGPT the following prompt: "How to automatically download condensedStudentQQQ.xlsx from https://github.com/lindsayelee/Data-Science-Capstone-Project in R". See R Script for output of code that ChatGPT provide to help me set a relative path to automatically download a version of my dataset on my Github repository. This was the only instance of using Open AI ChatGPT. 
+
+*Regression: Hierarchical Multiple Regression & Random Forest Machine Learning*
+
+To assess the first research question, I conducted a series of multiple regressions to assess demographic background to well-being, then the psychosocial variables to well-being. In a final regression model, I included all demographic and psychosocial variables to predict well-being. To assess the predictive power of specific psychosocial and demographic variables on well-being (and specifically the top features), I used a random forest model to assess the predictability of the features to well-being and the importance of all included features. Random forest models are a machine learning algorithm used for classification or regression tasks by creating decision trees based on your training set (Breiman, 2001) Random forest models are useful for continuous outcomes and can use both continuous and categorical features (Ibizarry, 2024). Initially, I used the caret package (Kuhn et al., 2023) and the explored how to tune my model with train() and help determine the mtry value to use for my random forest model that includes all features. To evaluate, Root Mean Square Error (RMSE), MAE, and R-squared was used as performance metrics. Specifically, I sought to find a model with an RMSE lower than 1 (.75 < RMSE <= 1) and Mean Absolute Error (MAE), and highest R-squared values. 
+
+```{r setup, include=FALSE, warning = FALSE}
+#Load packages ----------
+if(!require(haven)) install.packages("haven", repos = "http://cran.us.r-project.org")
+if(!require(here)) install.packages("here", repos = "http://cran.us.r-project.org")
+if(!require(readxl)) install.packages("readxl", repos = "http://cran.us.r-project.org")
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(dplyr)) install.packages("dplyr", repos = "http://cran.us.r-project.org")
+if(!require(ggplot2)) install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+if(!require(randomForest)) install.packages("randomForest", repos = "http://cran.us.r-project.org")
+
+library(here)
+library(readxl)
+library(haven)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(randomForest)
+
+#Import Dataset -----------
+#Access original PISA 2022 dataset from 
+#https://www.oecd.org/pisa/data/2022database/
+#This dataset was from the SPSS (TM) Data Files (compressed) - Student questionnaire data file
+#Webscraping encountered a HTTP 403 error and could not access website even when specifying user agent for my browser. 
+
+#Option 1 for Accessing condensed Dataset
+#Automatically download condensedStudentQQQ from my Github account: lindsayelee - see code below
+
+#I asked ChatGPT the following prompt "How to automatically download condensedStudentQQQ.xlsx from https://github.com/lindsayelee/Data-Science-Capstone-Project in R"
+#OpenAI. (2023). ChatGPT (Mar 14 version) [Large language model]. https://chat.openai.com/chat 
+
+#ChatGPT gave the following solution of code:
+# Define the URL of the file
+file_url <- "https://github.com/lindsayelee/Data-Science-Capstone-Project/raw/main/condensedStudentQQQ.xlsx"
+# Define the destination file path
+dest_file <- "condensedStudentQQQ.xlsx"
+# Download the file
+download.file(file_url, dest_file, mode = "wb")
+# Read the Excel file with readxl package
+bcpwb_data <- readxl::read_excel(dest_file)
+
+#Start running code from here after you load from my GitHub Repository
+#check class of each variable
+sapply(bcpwb_data, class)
+
+#recode Gender to Female and Male for easier interpretation
+#recode Country to Country and each level to each respective country name for easier plot interpretation
+#recode Highest level of parental education to ISCED levels described by UNESCO/PISA documentation 
+bcpwb_data = bcpwb_data %>% mutate(
+  Gender = case_when(
+    Gender == "1" ~ "Female",
+    Gender == "2" ~ "Male"),
+  Country = case_when(
+    CNT == "BRA" ~ "Brazil",
+    CNT == "ESP" ~ "Spain",
+    CNT == "FRA" ~ "France",
+    CNT == "HKG" ~ "Hong Kong",
+    CNT == "HUN" ~ "Hungary",
+    CNT == "IRL"~ "Ireland",
+    CNT == "MAC" ~ "Macao",
+    CNT == "NLD" ~ "Netherlands",
+    CNT == "NZL" ~ "New Zealand",
+    CNT == "SVN" ~ "Slovenia"),
+  HighestParentalEd = case_when(
+    HighestParentalEd == "1" ~ "No Formal Education",
+    HighestParentalEd == "2" ~ "Primary Education",
+    HighestParentalEd == "3" ~ "Lower Secondary",
+    HighestParentalEd == "4" ~ "Upper Secondary No Access to Tertiary",
+    HighestParentalEd == "5" ~ "Upper Secondary w Access to Tertiary",
+    HighestParentalEd == "6" ~ "Post Secondary non Tertiary",
+    HighestParentalEd == "7" ~ "Two Years of Tertiary",
+    HighestParentalEd == "8" ~ "Bachelor's or equivalent",
+    HighestParentalEd == "9" ~ "Master's or equivalent",
+    HighestParentalEd == "10" ~ "Doctoral or equivalent"))
+
+#remove unnecessary columns
+bcpwb_data = bcpwb_data %>% 
+  select(-CNT, -HighestParentalEd_Index)
+
+#create factor variables
+factor.col = c("Country", "Gender","Grade", "Age","HighestParentalEd")
+bcpwb_data[factor.col] <- lapply(bcpwb_data[factor.col], factor)
+
+#create numeric variables
+numeric.col = c("Belongingness","Curiousity","Perseverance","WellBeing","StressResistance","FamilySupport","ProblemSelfDirectedLearn")
+bcpwb_data[numeric.col] <- lapply(bcpwb_data[numeric.col], as.numeric)
+
+```
+
+## **Results**
+Initial descriptive statistics and data visualizations were explored using basic plots (e.g., the ggplot package; Wickham, 2016) to understand the summary statistics and distributions of the dataset in relation to well-being scores. 
+
+## **__Demographic Background__**
+
+## *Age & Gender*
+
+This sample was comprised of students aged 15 & 16 years old, with more students being 16 years old (87.37%) than 15 years old (12.6%). There was also a fairly even split between males (*n* = 19564; 49.11%) and females (*n* = 20277;50.89%). The average well-being for 16 year old male students (*M* = .06, *SD* = .96) was lower than 15 year old male students (*M* = .13, *SD* = .99), however overall both were above the standard average score. However, females overall reported below mean average scores on well-being. The average well-being for 16 year old female students (*M* = -.21, *SD* = 1.05) was lower than the 15 year old female students (*M* = -.07, *SD* = 1.04). The plots show how there are more 16 year olds overall than 15 year olds in the dataset. Also, there are several boys and girls who are scoring below the average for well-being. See Table 1 & Figures 1-2. 
+
+```{r , echo = FALSE, warning = FALSE}
+#Inspect data & distributions
+AgeGender_tbl = bcpwb_data %>% group_by(Age, Gender) %>%
+  summarize(count = n(), 
+            meanWellBeing = mean(WellBeing, na.rm = TRUE), 
+            sdWellBeing = sd(WellBeing, na.rm = TRUE))
+
+knitr::kable(AgeGender_tbl, summary=TRUE, rownames=TRUE)
+
+##Age & Gender
+bcpwb_data %>% 
+  ggplot(aes(x = Age, fill = Gender)) + 
+  geom_bar() + ggtitle("Figure 1: Gender & Age") + theme_bw()
+
+prop.table(table(bcpwb_data$Age))
+prop.table(table(bcpwb_data$Gender))
+
+##Age & Gender
+bcpwb_data %>% 
+  ggplot(aes(x = WellBeing, y = Gender)) + 
+  geom_point() + ggtitle("Figure 2: Gender & Well-Being") + theme_bw()
+
+```
+
+## *Grade*
+
+For grade level, this was tricky to interpret. Across the world, there are different distinctions for grade level. However, the majority of students are in the 10th grade (*n* = 27673) which is similar to the schooling in the United States and is in line with the 15 to 16 year olds included in the sample. Interestingly, the mean well-being score was highest for students in the 7th grade (*M* = .11, *SD* = 1.08) and the 11th grade (*M* = .01, *SD* = 1.04), but lowest for students in the 10th grade (*M* = -.09, *SD* = 1.01). However, according to Figure 4, you can see that the majority of the grades are scoring below average on the Well Being measure. 
+
+```{r, echo = FALSE}
+bcpwb_data$Grade <- factor(bcpwb_data$Grade, levels=c("7","8","9","10", "11","12"))
+
+Grade_tbl = bcpwb_data %>% group_by(Grade) %>%
+  summarise(count = n(), 
+            meanWellBeing = mean(WellBeing, na.rm = TRUE), 
+            sdWellBeing = sd(WellBeing, na.rm = TRUE)) %>%
+  arrange(desc(count))
+
+knitr::kable(Grade_tbl, summary=TRUE, rownames=TRUE)
+
+##Grade 
+bcpwb_data %>% 
+  ggplot(aes(x = Grade)) + 
+  geom_bar(fill = "darkblue") + ggtitle("Figure 3: Grade") + theme_bw()
+
+##Grade & Well Being
+bcpwb_data %>% 
+  ggplot(aes(x = WellBeing, y = Grade)) + 
+  geom_point() + ggtitle("Figure 4: Grade & Well-Being") + theme_bw()
+
+
+```
+
+
+## *Parental Education*
+
+For parental education, the majority of students in the sample have both parents with a Bachelor's or equivalent (23.65%) or a Master's or equivalent (21.79%). The lowest proportion of students had both parents with no formal education (.06%). See Figure 5. In regard to Well Being, students seem to have lower than average well-being scores regardless of parental education scores. 
+
+```{r , echo = FALSE}
+prop.table(table(bcpwb_data$HighestParentalEd))
+
+ParentalEdu_tbl = bcpwb_data %>% group_by(HighestParentalEd) %>%
+  summarise(count = n(), 
+            meanWellBeing = mean(WellBeing, na.rm = TRUE), 
+            sdWellBeing = sd(WellBeing, na.rm = TRUE)) %>%
+  arrange(desc(meanWellBeing))
+
+knitr::kable(ParentalEdu_tbl, summary=TRUE, rownames=TRUE)
+
+##Highest Parental Education
+bcpwb_data %>% 
+  ggplot(aes(x = HighestParentalEd)) + 
+  geom_bar(fill = "darkblue") + ggtitle("Figure 5: Highest Parental Education") + theme_bw() + 
+  theme(axis.text.x = element_text(angle = 10)) 
+
+
+##Highest Parental Education & Well Being
+bcpwb_data %>% 
+  ggplot(aes(x = WellBeing, y = HighestParentalEd)) + 
+  geom_point() + ggtitle("Figure 6: Highest Parental Education & Well-Being") + theme_bw()
+
+```
+
+## *Country of Origin*
+
+The majority of the sample was from Spain (33.33%) and a similar amount from the other included countries (Brazil, Frane, Hong Kong, Hungary, Ireland, Macao, Netherlands, New Zealand, and Slovenia) that range from 5% to 8% of the total sample. Due to the large sample from Spain, I used Spain as the reference group in the regressions below. Again, regardless of country of origin, well-being scores were below average. However, the highest reported well-being was found in Brazil (*M* = .20, *SD* = .96) and the lowest in Macao (*M* = -.32, *SD* = 1.01). 
+
+```{r, echo = FALSE, warning = FALSE}
+prop.table(table(bcpwb_data$Country))
+
+#Country of Origin
+bcpwb_data %>% 
+  ggplot(aes(x = Country)) + 
+  geom_bar(fill = "darkblue") + ggtitle("Figure 7: Country of Origin") + theme_bw()
+
+Country_tbl = bcpwb_data %>% group_by(Country) %>%
+  summarise(count = n(), 
+            meanWellBeing = mean(WellBeing, na.rm = TRUE), 
+            sdWellBeing = sd(WellBeing, na.rm = TRUE)) %>%
+  arrange(desc(meanWellBeing))
+#Spain has the most responses - use as reference group
+
+knitr::kable(Country_tbl, summary=TRUE, rownames=TRUE)
+
+##Highest Parental Education & Well Being
+bcpwb_data %>% 
+  ggplot(aes(x = WellBeing, y = Country)) + 
+  geom_point() + ggtitle("Figure 8: Country of Origin & Well-Being") + theme_bw()
+
+```
+
+## **__Psychosocial Features__**
+
+## *Belongingness*
+
+According to Figure 9, the density plot shows belongingness scores across the entire sample are below average. For Figure 10, a generalized additive model ("gam") method was used for a penalized regression. This figure shows with an increase in well-being scores there is an increase on belongingness scores.  
+
+
+```{r, echo = FALSE, warning = FALSE}
+belong_tbl = bcpwb_data %>% select(Belongingness) %>% summary()
+
+knitr::kable(belong_tbl, summary=TRUE)
+
+bcpwb_data %>% 
+  ggplot(aes(x = Belongingness, color = Belongingness)) +
+  geom_density(alpha = .5, fill = "purple") + ggtitle("Figure 9: Belongingness") 
+  
+
+bcpwb_data %>% 
+  ggplot(aes(x = Belongingness, y = WellBeing)) + 
+  geom_smooth(method = "gam") + ggtitle("Figure 10: Belongingness & Well-Being") + theme_bw()
+
+```
+
+## *Curiosity*
+
+According to Figure 11, the density plot shows curiosity scores across the entire sample are near average. For Figure 12, a generalized additive model ("gam") method was used for a penalized regression. This figure shows with an increase in well-being scores there is an increase on curiosity scores.  
+
+```{r, echo = FALSE, warning = FALSE}
+curiosity_tbl = bcpwb_data %>% select(Curiousity) %>% summary()
+
+knitr::kable(curiosity_tbl, summary=TRUE)
+
+bcpwb_data %>% 
+  ggplot(aes(x = Curiousity, color = Curiousity)) +
+  geom_density(alpha = .5, fill = "purple") + ggtitle("Figure 11: Curiosity") 
+  
+
+bcpwb_data %>% 
+  ggplot(aes(x = Curiousity, y = WellBeing)) + 
+  geom_smooth(method = "gam") + ggtitle("Figure 12: Curiosity & Well-Being") + theme_bw()
+
+```
+
+## *Perseverance*
+
+According to Figure 13, the density plot shows perseverance scores across the entire sample are slightly below average. For Figure 14, a generalized additive model ("gam") method was used for a penalized regression. This figure shows with an increase in well-being scores there is an increase on perseverence scores.  
+
+```{r, echo = FALSE, warning = FALSE}
+Perseverance_tbl = bcpwb_data %>% select(Perseverance) %>% summary()
+
+knitr::kable(Perseverance_tbl, summary=TRUE)
+
+bcpwb_data %>% 
+  ggplot(aes(x = Perseverance, color = Perseverance)) +
+  geom_density(alpha = .5, fill = "purple") + ggtitle("Figure 13: Perseverance") 
+  
+
+bcpwb_data %>% 
+  ggplot(aes(x = Perseverance, y = WellBeing)) + 
+  geom_smooth(method = "gam") + ggtitle("Figure 14: Perseverance & Well-Being") + theme_bw()
+
+```
+
+## *Problems with Self Directed Learning*
+
+According to Figure 15, the density plot shows problems with self-direct learning scores show a large proportion of students near the average, however there looks to be a bimodal distribution with an increase in scores around a -2 standard deviation. For Figure 16, a generalized additive model ("gam") method was used for a penalized regression. This figure also shows mixed results, with an increase in well-being scores being associated with both high scores on problems with self-direct learning and low problems with self-direct learning.
+
+```{r, echo = FALSE, warning = FALSE}
+ProblemSelfDirectedLearn_tbl = bcpwb_data %>% select(ProblemSelfDirectedLearn) %>% summary()
+
+knitr::kable(ProblemSelfDirectedLearn_tbl, summary=TRUE)
+
+bcpwb_data %>% 
+  ggplot(aes(x = ProblemSelfDirectedLearn, color = ProblemSelfDirectedLearn)) +
+  geom_density(alpha = .5, fill = "purple") + ggtitle("Figure 15: Problems w/ Self Directed Learning") 
+  
+
+bcpwb_data %>% 
+  ggplot(aes(x = ProblemSelfDirectedLearn, y = WellBeing)) + 
+  geom_smooth(method = "gam") + ggtitle("Figure 16: Problems w/ Self Directed Learning & Well-Being") + theme_bw()
+```
+
+## *Stress Resistance*
+
+According to Figure 17, the density plot shows Stress Resistance scores across the entire sample are normally distributed. For Figure 18, a generalized additive model ("gam") method was used for a penalized regression. This figure shows with an increase in well-being scores there is an increase on stress resistance scores (and vice versa).  
+
+```{r bcpwb_data, echo = FALSE, warning = FALSE}
+StressResistance_tbl = bcpwb_data %>% select(StressResistance) %>% summary()
+
+knitr::kable(StressResistance_tbl, summary=TRUE)
+
+bcpwb_data %>% 
+  ggplot(aes(x = StressResistance, color = StressResistance)) +
+  geom_density(alpha = .5, fill = "purple") + ggtitle("Figure 17: Stress Resistance") 
+  
+
+bcpwb_data %>% 
+  ggplot(aes(x = StressResistance, y = WellBeing)) + 
+  geom_smooth(method = "gam") + ggtitle("Figure 18: Stress Resistance & Well-Being") + theme_bw()
+
+```
+
+## *Family Support*
+
+According to Figure 19, the density plot shows Family Support scores across the entire sample show a bimodal distribution with a large proportion of scores at the mean, but then another large proportion at the 2 standard deviations above the average. For Figure 20, a generalized additive model ("gam") method was used for a penalized regression. This figure shows with an increase in well-being scores there is an increase on Family Support scores.  
+
+```{r, echo = FALSE, warning = FALSE}
+FamilySupport_tbl = bcpwb_data %>% select(FamilySupport) %>% summary()
+
+knitr::kable(FamilySupport_tbl, summary=TRUE)
+
+bcpwb_data %>% 
+  ggplot(aes(x = FamilySupport, color = FamilySupport)) +
+  geom_density(alpha = .5, fill = "purple") + ggtitle("Figure 19: FamilySupport") 
+  
+bcpwb_data %>% 
+  ggplot(aes(x = FamilySupport, y = WellBeing)) + 
+  geom_smooth(method = "gam") + ggtitle("Figure 20: FamilySupport & Well-Being") + theme_bw()
+
+```
+
+## *Hierarchical Multiple Linear Regression*
+
+A series of three models were assessed using hierarchical multiple linear regression. 
+
+*Model 1*
+
+In Model 1, I assessed the contribution of only the demographic predictors/features to the well-being outcome. Overall, the model explained only 3.9% of the variance in scores of well-being, *R-squared* = .039, *F*(24, 39816) = 67.92, *p* <.001. Caution should be exercised with these results as there were clusters of outliers found. Grade level and highest level of parental education were not significant predictors of adolescent well-being. However, gender and all countries of origin did predict adolescent well-being. For instance, male students, on average, scored higher on well-being compared to females, *b* = 0.26, *p* <.001. See Table below for details by country. 
+
+```{r , echo=FALSE, warning = FALSE}
+
+#What is the relationship between the demographic variables to well being?
+model1 = lm(WellBeing ~ Grade + Gender + Country + HighestParentalEd, data = bcpwb_data)
+summary(model1)
+plot(model1)
+
+```
+*Model 2*
+
+In Model 2, I assessed the psychosocial variables in relation to well-being. Overall, all of the psychosocial predictors of the model explained 14.4% of the variance in scores of well-being, *R-squared* = .14, *F*(6, 39834) = 1118, *p* <.001. Notably, Stress resistance, *b* = .19, *p* <.001, Belongingness, *b* = .14, *p* <.001, and Family Support, *b* = .16, *p* <.001 were the strongest predictors of increases in adolescent well-being.
+
+```{r, echo=FALSE, warning = FALSE}
+#What is the relationship between all psychosocial variables to well being?
+model2 = lm(WellBeing ~ Belongingness + Curiousity + Perseverance + StressResistance + FamilySupport + ProblemSelfDirectedLearn, data = bcpwb_data)
+summary(model2)
+plot(model2)
+```
+*Model 3*
+
+In Model 3, I assessed the demographic and psychosocial variables in relation to well-being. There were changes to demographic predictors to well-being when the psychosocial variables were included. Overall, all of the psychosocial and demographic predictors of the model explained 18.8% of the variance in scores of well-being, *R-squared* = .18, *F*(30, 39810) = 294.8, *p* <.001. Again, Stress resistance, *b* = .16, *p* <.001, Belongingness, *b* = .18, *p* <.001, and, Family Support, *b* = .17, *p* <.001 were the strongest predictors of increases in adolescent well-being. 
+
+Specific predictors of Highest Parental Education and Grade level did become significant predictors in the model to well-being after inclusion of the psychosocial predictors. Specifically, students with parents with a Lower Secondary education, *b* = 0.04, *p* <.05, Two Years of Tertiary, *b* = 0.04, *p* <.05, Secondary No Access to Tertiary, *b* = 0.06, *p* <.01, and  Master's or equivalent *b* =  -0.03, *p* <.001 showed contributions to adolescent well-being. Due to multiple comparisons, there would likely need to be a correction to account for potential false discovery rates across all three of these models (e.g., Benjamini & Hochberg, 1995)
+
+```{r, echo=FALSE, warning = FALSE}
+#Final model - To what extent does grade level, gender, country, belongingness, curiosity, and perseverance predict well-being?
+model3 = lm(WellBeing ~ Grade + Gender + Country + HighestParentalEd + Belongingness + Curiousity + Perseverance + FamilySupport + ProblemSelfDirectedLearn + StressResistance, data = bcpwb_data)
+summary(model3)
+plot(model3)
+```
+
+## *Random Forest Algorithm*
+
+Prior to running our random forest algorithm, I need to partition our dataset into a training and test set. The training set is 10% of our entire dataset. I set the seed to 2024 (the current year).
+
+```{r, echo=FALSE, warning = FALSE}
+#Machine Learning to determine the predictors with the highest effect on well-being
+set.seed(2024, sample.kind="Rounding") 
+test_index <- createDataPartition(y = bcpwb_data$WellBeing, times = 1, p = 0.1, list = FALSE)
+train <- bcpwb_data[-test_index,]
+test <- bcpwb_data[test_index,]
+```
+
+Prior to running the random forest, I need to tune our random forest algorithm with our training set to determine the the optimal number of variables that are randomly sampled at each split (i.e., mtry). I used all of the features in the dataset to run our model to the outcome of Well-Being (similar to our Model 3 regression). The code below was partially used from the edX Harvard Course (Irizarry, 2024) and the Introduction to Data Science textbook for the course (Irizarry, 2024).
+
+Due to time, I set the ntree to 100, which is the number of branches that will "grow" from each split. I used RMSE as our metric for evaluation. I set a control of cv, which seperates the model into k-folds a specified number of times (I set to 3). The result of our tuning algorithm, I found the optimal mtry was 16, with the lowest RMSE = .915, R-Squared = 19, and MAE at .73. 
+
+```{r, echo=FALSE, warning = FALSE}
+#tuning with caret package
+control <- trainControl(method="cv", number=3)
+#tuning to determine mtry
+#this will take time to run
+tune_edx <- train(WellBeing ~ .,
+                  data= train, 
+                  method="rf", 
+                  metric="RMSE", 
+                  ntree = 100, 
+                  trControl=control)
+
+print(tune_edx)
+```
+
+Finally, I performed a random forest algorithm model with the training set with all of features with 100 ntrees and mtry set to 16. I also set Importance to true to be able to assess the importance of the included features (to answer our second research question).
+
+``` {r, echo=FALSE, warning = FALSE}
+#tuning said that 16 was the optimal mtry
+rf_model <- randomForest(WellBeing ~ ., 
+                         data= train,  
+                         Importance = TRUE, 
+                         ntree = 100, mtry = 16)
+print(rf_model)
+plot(rf_model, log="y")
+
+```
+
+The algorithm found the RMSE to be at .92, which is lower than our threshold at 1. I also found the variance explained for algorithm to be at 18%. 
+``` {r, echo=FALSE, warning = FALSE}
+# trees lowest MSE
+which.min(rf_model$mse)
+
+# RMSE optimal random forest
+sqrt(rf_model$mse[which.min(rf_model$mse)])
+
+```
+
+To assess model importance, I isolated importance from the random forest model. I found that Belongingness, Stress Resistance,       Family Support, Perseverance, and Problem with Self Directed Learning were the most important predictors of adolescent well-being. See Figure 21 for sorted features by importance. 
+
+``` {r, echo=FALSE, warning = FALSE}
+# Get feature importance
+model_importance <- importance(rf_model)
+Feature_importance <- data.frame(Feature = rownames(model_importance), Importance = model_importance[, 1])
+print(Feature_importance)
+
+# Select top N important features (e.g., top predictors for well-being)
+top_n <- 5
+top_features <- Feature_importance |>
+  arrange(desc(Importance)) |>
+  slice(1:top_n) |>
+  pull(Feature)
+top_features
+
+```
+
+``` {r, echo=FALSE, warning = FALSE}
+#Create ggplot
+Feature_importance %>% 
+  ggplot(aes(x = reorder(Feature, -Importance), y = Importance)) + 
+  geom_bar(stat = "identity", fill = "darkblue") + xlab("Features") + ggtitle("Figure 21: Feature Importance") + theme_bw() +
+  theme(axis.text.x = element_text(angle = 20)) 
+
+```
+
+Finally, I set the seed to 2024 (again) and trained a new random forest model on the reduced dataset. This resulted in a test RMSE of .93, which was higher than what I found in our initial random forest model. 
+
+```{r, echo=FALSE, warning = FALSE}
+
+# Train a new random forest model on the reduced dataset
+# Reduce the dataset to include only top important features
+set.seed(2024)
+train <- train |>select(WellBeing, all_of(top_features))
+test <- test |> select(WellBeing, all_of(top_features))
+
+rf_model_re <- randomForest(WellBeing ~ ., data = train, ntree = 100, mtry = 16)
+
+# Predict and evaluate on the test set
+predictions <- predict(rf_model_re, newdata = test)
+test_RMSE <- sqrt(mean((predictions - test$WellBeing)^2))
+
+# What is the RMSE of the Test?
+print(paste("Test RMSE:", test_RMSE))
+
+```
+
+
+## **Conclusion**
+
+The sample had a large proportion of 10th grade students and 16 year olds. A large proportion of students were from Spain as their country of origin. Results from Model 1 show that gender and country origin did significantly predict adolescent well-being. Model 2, show that all of the psychosocial predictors contribute to adolescent well-being. 
+
+However, after running our random forest algorithm, I determined the most important features.In this order, Belongingness, Stress Resistance, Family Support, Perseverance, and Problems with Self-directed Learning all were the top features to predict well-being, more so than Curiosity and all the demographic features included. 
+
+The potential impact from this finding is that students who felt supported by family, more belongingness (or lack there of), more perseverent, and have higher problems with self-directed learning all related to their well-being. Principals and educators need to consider the learning environments that students are in that encourage a sense of belongingness, parental involvement in a student's life, and the internal factors that can predict well-being in students. This is helpful information for educational practitioners and researchers interested in continuing to find relationships with psychosocial strength variables in relation to well-being in school environments. 
+
+## *Limitations & Future Directions*
+
+This report was cross-sectional in nature, and does not report longitudinal trends over time. Likewise, using Spain as the reference group makes us interpret all of the included countries to students in Spain. More research should look at the important features found in relation to other countries as the reference group. One of the most notable limitations is the usage of multiple linear regression with a large dataset. The models were overpowered by a large sample size, and there were notable violations of linearity and outliers that would need to be assessed. Luckily, our predictors did not have several levels and they were able to run. I also need to perform a correction for multiple comparisons for the regression models. The higher RMSE found in the reduced test set shows that I may be overfitting our solution, more replications should be conducted to verify.
+
+Additional more advanced multivariate modeling is needed to account for nested structures. For example, there is teacher level variance that could be accounted for. Future research should also combine datasets by year and examine similar variables over time to analyze specific trends and impacts of the Pandemic. I'd also like to look at the the ICT items related to technology usage and well-being. Additionally, PISA provides item level data for each of their measures. I would like to conduct a machine learning algorithm using an unsupervised machine learning model like PCA to evaluate the item level variance and overall factor structure of each of the subtests, and how these compare to the original measurements included in the student questionnaires. I'd also like to examine potential measurement invariance by country and/or other demographic variables (e.g., gender or socioeconomic status). Other features I was interested in was specifically creativity items. I waited for the release of new variables in June 2024 which were items related to creativity and creative learning environments. Future research should look at creativity in relation to well-being and the other psychosocial features included. 
+
+## **References**
+Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate: A practical and powerful approach to multiple testing. Journal of the Royal Statistical Society. Series B (Methodological), 57(1), 289-300. http://www.jstor.org/stable/2346101
+
+Breiman, L. (2001). Random forests. Machine Learning 45, 5–32. https://doi.org/10.1023/A:1010933404324
+
+Breiman, L., Cutler, A., Liaw, A., & Wiener, M. (2022). randomForest: Breiman and Cutler's random forests for classification and regression. R package version 4.7-1.1. https://cran.r-project.org/web/packages/randomForest/randomForest.pdf
+
+Erikson, E.H. (1968). Identity: youth and crisis. Norton & Co..
+
+Granic, I., Morita, H., & Scholten, H. (2020). Beyond Screen Time: Identity Development in the Digital Age. Psychological Inquiry, 31(3), 195–223. https://doi.org/10.1080/1047840X.2020.1820214
+
+Irizarry, R. A. (2024). Introduction to data science. https://rafalab.dfci.harvard.edu/dsbook/ 
+
+Kuhn, M. et al. (2023). caret: Classification and regression training. R package version 6.0-94. https://cran.r-project.org/web/packages/caret/index.html
+
+Nemiro, A., Hijazi, Z., O'Connell, R. Coetzee, A.,Snider, L. (2022) Mental health and psychosocial wellbeing in education: The case to integrate core actions and interventions into learning environments. Intervention 20(1), 36-45. https://doi.org/10.4103/intv.intv_20_21 
+
+OECD.(2023). PISA 2022 Results (Volume II): Learning during- and from - Disruption. Organisation for Economic Co-operation and Development (OECD). https://www.oecd.org/publications/pisa-2022-results-volume-ii-a97db61c-en.htm 
+
+OECD.(2024). PISA 2022 Database. Programme for International Student Assessment (PISA). https://www.oecd.org/pisa/data/2022database/
+
+OpenAI. (2023). ChatGPT (Mar 14 version) [Large language model]. https://chat.openai.com/chat 
+
+Scully, M., Swords, L., & Nixon, E. (2023). Social comparisons on social media: online appearance-related activity and body dissatisfaction in adolescent girls. Irish Journal of Psychological Medicine, 40(1), 31–42. https://doi.org/10.1017/ipm.2020.93
+
+Subotnik, R. F. (2015). Psychosocial Strength Training: The Missing Piece in Talent Development. Gifted Child Today, 38(1), 41-48. https://doi.org/10.1177/1076217514556530
+
+Tsang, K.L.V., Wong, P.Y.H. and Lo, S.K. (2012), Assessing psychosocial well-being of adolescents: a systematic review of measuring instruments. Child: Care, Health and Development, 38, 629-646. https://doi.org/10.1111/j.1365-2214.2011.01355.x
+
+UNESCO. (2023). What you need to know about education for health and well-being. https://www.unesco.org/en/health-education/need-know?hub=79846
+
+UNESCO. (2024, April). UNESCO report spotlights harmful effects of social media on young girls.https://news.un.org/en/story/2024/04/1149021
+
+Wickham, H., Vaughan, D., & Girlich, M. (2024). tidyr: Tidy messy data. R package version 1.3.1, https://github.com/tidyverse/tidyr, https://tidyr.tidyverse.org.
+
+Wickham, H., Miller, E.,Smith, D., & Posit Software (2023). haven: Import and export 'SPSS', 'Stata', and 'SAS' files. R package version 2.5.4. https://haven.tidyverse.org/reference/read_spss.html 
+
+Wickham H (2016). ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York. ISBN 978-3-319-24277-4, https://ggplot2.tidyverse.org.
+
+Wickham et al. (2014). dplyr. https://cran.r-project.org/web/packages/dplyr/vignettes/dplyr.html 
+
+Wong, J. (2024, April). Social media hurts girls' mental health and education potential, says UNESCO report. CBC News. https://www.cbc.ca/news/unesco-gem-technology-social-media-1.7184717
